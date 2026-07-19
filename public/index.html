@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Miscue Lens</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --color-primary: #4f46e5;
+    --color-primary-dark: #4338ca;
+    --color-primary-light: #eef2ff;
+    --color-interference: #2563eb;
+    --color-interference-bg: #eff6ff;
+    --color-inconsistent: #d97706;
+    --color-inconsistent-bg: #fffbeb;
+    --color-text: #1f2330;
+    --color-muted: #6b7280;
+    --color-bg: #f6f7fb;
+    --color-card: #ffffff;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --shadow-soft: 0 10px 30px -14px rgba(79, 70, 229, 0.25);
+    --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { overflow-x: hidden; }
+
+  body {
+    position: relative;
+    overflow-x: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+    color: var(--color-text);
+    background: var(--color-bg);
+    min-height: 100vh;
+  }
+
+  /* ---- animated background blobs ---- */
+  .bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.4;
+    z-index: -1;
+    pointer-events: none;
+    will-change: transform;
+  }
+  .blob1 { width: 380px; height: 380px; background: #a5b4fc; top: -140px; left: -110px; animation: floatA 16s ease-in-out infinite; }
+  .blob2 { width: 320px; height: 320px; background: #f0abfc; top: 220px; right: -150px; animation: floatB 18s ease-in-out infinite; }
+  .blob3 { width: 300px; height: 300px; background: #93c5fd; bottom: -120px; left: 25%; animation: floatC 20s ease-in-out infinite; }
+  @keyframes floatA { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(50px,70px) scale(1.12); } }
+  @keyframes floatB { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-60px,50px) scale(0.88); } }
+  @keyframes floatC { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,-50px) scale(1.08); } }
+
+  /* ---- page entrance ---- */
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .enter { animation: enter 0.55s cubic-bezier(.2,.7,.3,1) both; }
+
+  .hero { text-align: center; margin-bottom: 40px; }
+  .hero .logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--color-primary), #818cf8);
+    background-size: 200% 200%;
+    font-size: 28px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-soft);
+    animation: breathe 3.2s ease-in-out infinite, gradientShift 6s ease infinite;
+  }
+  @keyframes breathe { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.08) rotate(-3deg); } }
+  @keyframes gradientShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .hero h1 {
+    font-size: 1.8rem; margin: 0 0 6px; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #312e81, var(--color-primary), #312e81);
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: shine 5s linear infinite;
+  }
+  @keyframes shine { to { background-position: 200% center; } }
+  .hero p { color: var(--color-muted); margin: 0; font-size: 0.95rem; }
+
+  .steps { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; transition: all 0.3s ease; }
+  .step-dot.active { background: var(--color-primary); width: 22px; border-radius: 4px; }
+
+  .card {
+    background: var(--color-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(16, 24, 40, 0.04);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+  .card:hover { box-shadow: 0 14px 34px -16px rgba(79,70,229,0.28); transform: translateY(-1px); }
+
+  .card-label {
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--color-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-label .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--color-primary-light); color: var(--color-primary); font-size: 0.72rem;
+  }
+
+  .segmented { display: inline-flex; background: #f1f2f7; border-radius: 999px; padding: 4px; gap: 4px; }
+  .segmented label {
+    position: relative; padding: 9px 18px; border-radius: 999px; font-size: 0.9rem;
+    cursor: pointer; color: var(--color-muted); transition: all 0.25s ease; user-select: none;
+  }
+  .segmented input { display: none; }
+  .segmented input:checked + span { color: white; }
+  .segmented label:has(input:checked),
+  .segmented label.active-segment { background: var(--color-primary); color: white; box-shadow: var(--shadow-soft); }
+  .segmented label:active { transform: scale(0.96); }
+
+  select#passageSelect,
+  select#languageSelect {
+    width: 100%; padding: 12px 14px; font-size: 1rem; border-radius: var(--radius-md);
+    border: 1.5px solid #e5e7eb; background: white; color: var(--color-text);
+    cursor: pointer; transition: border-color 0.2s ease;
+  }
+  select#passageSelect:focus,
+  select#languageSelect:focus { outline: none; border-color: var(--color-primary); }
+
+  #passageText {
+    font-size: 1.15rem; line-height: 1.75; padding: 20px 22px;
+    background: linear-gradient(180deg, #fbfbfe, #f6f6fc);
+    border-left: 4px solid var(--color-primary); border-radius: var(--radius-md);
+    color: #33364a; transition: opacity 0.2s ease;
+  }
+
+  .record-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+  #recordBtn {
+    display: inline-flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600;
+    padding: 13px 22px; border-radius: 999px; border: none; background: var(--color-primary);
+    color: white; cursor: pointer; box-shadow: var(--shadow-soft);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  }
+  #recordBtn:hover:not(:disabled) { transform: translateY(-1px) scale(1.02); }
+  #recordBtn:active:not(:disabled) { transform: scale(0.96); }
+  #recordBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #recordBtn::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: white; }
+  #recordBtn.recording { background: #dc2626; animation: pulse-ring 1.4s ease-out infinite; }
+  #recordBtn.recording::before { background: white; animation: blink 1s ease-in-out infinite; }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+    70% { box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  #waveform {
+    display: block; height: 0; opacity: 0; width: 0;
+    border-radius: 10px; background: #f4f4fb;
+    transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  }
+  #waveform.active { width: 180px; height: 44px; opacity: 1; }
+
+  #analyzeBtn {
+    padding: 13px 22px; border-radius: 999px; border: 1.5px solid var(--color-primary);
+    background: white; color: var(--color-primary); font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  #analyzeBtn:hover:not(:disabled) { background: var(--color-primary-light); transform: translateY(-1px); }
+  #analyzeBtn:active:not(:disabled) { transform: scale(0.96); }
+  #analyzeBtn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #d1d5db; color: #9ca3af; }
+
+  /* ---- progress stepper ---- */
+  .progress-steps { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+  .progress-step {
+    display: flex; align-items: center; gap: 7px; font-size: 0.82rem;
+    color: #b3b6c4; transition: color 0.3s ease;
+  }
+  .progress-step .circle {
+    width: 20px; height: 20px; border-radius: 50%; border: 2px solid #e2e3ee;
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem;
+    transition: all 0.3s ease; color: transparent;
+  }
+  .progress-step.active { color: var(--color-primary); }
+  .progress-step.active .circle {
+    border-color: var(--color-primary); background: var(--color-primary); color: white;
+    animation: stepPulse 1s ease-in-out infinite;
+  }
+  .progress-step.done { color: #059669; }
+  .progress-step.done .circle { border-color: #059669; background: #059669; color: white; }
+  .progress-step.done .circle::after { content: "✓"; }
+  @keyframes stepPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(79,70,229,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(79,70,229,0); }
+  }
+
+  .progress-bar-track { height: 4px; background: #eceefc; border-radius: 2px; margin-top: 12px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--color-primary), #818cf8, var(--color-primary));
+    background-size: 200% auto;
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(.3,.7,.3,1);
+    animation: shine 2s linear infinite;
+  }
+
+  #results { min-height: 1px; }
+
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .results-header h2 { font-size: 1.3rem; margin: 0; }
+
+  #langToggle {
+    padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--color-primary);
+    background: white; color: var(--color-primary); font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  #langToggle:hover { background: var(--color-primary-light); }
+  #langToggle:active { transform: scale(0.94); }
+
+  .lang-content { transition: opacity 0.18s ease, transform 0.18s ease; }
+  .lang-content.fading { opacity: 0; transform: translateY(4px); }
+
+  .section-title {
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--color-muted); margin: 28px 0 12px;
+  }
+
+  .transcript-quote {
+    font-style: italic; color: #444862; line-height: 1.7; padding: 18px 20px;
+    background: #fafafa; border-radius: var(--radius-md); border: 1px solid #ececf3;
+  }
+
+  .miss {
+    padding: 14px 18px; border-radius: var(--radius-md); margin-bottom: 10px;
+    border-left: 4px solid #999; background: #fafafa;
+    display: flex; flex-direction: column; gap: 4px;
+    opacity: 0; animation: fadeInUp 0.45s ease forwards;
+  }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .miss:hover { box-shadow: 0 6px 18px -10px rgba(0,0,0,0.18); }
+  .miss .miss-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .miss .badge { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; letter-spacing: 0.03em; }
+  .miss.interference_pattern { border-color: var(--color-interference); background: var(--color-interference-bg); }
+  .miss.interference_pattern .badge { background: var(--color-interference); color: white; }
+  .miss.inconsistent_pattern { border-color: var(--color-inconsistent); background: var(--color-inconsistent-bg); }
+  .miss.inconsistent_pattern .badge { background: var(--color-inconsistent); color: white; }
+  .miss .reasoning { color: #52566b; font-size: 0.92rem; }
+  .miss .words { font-size: 1rem; }
+  .no-misses { color: var(--color-muted); font-style: italic; padding: 10px 2px; }
+
+  .insight-card {
+    background: linear-gradient(135deg, var(--color-primary-light), #f5f3ff);
+    border-radius: var(--radius-lg); padding: 22px 24px; border: 1px solid #e0e2fb;
+    opacity: 0; animation: fadeInUp 0.5s ease forwards;
+  }
+  .insight-card p { margin: 0 0 14px; line-height: 1.65; color: #2c2e42; }
+  .insight-card p:last-child { margin-bottom: 0; }
+  .tip-row { display: flex; gap: 10px; align-items: flex-start; padding-top: 10px; border-top: 1px dashed #d6d8f5; }
+  .tip-row .tip-icon { font-size: 1.1rem; }
+
+  .confetti-piece { position: fixed; top: -12px; border-radius: 2px; z-index: 999; pointer-events: none; }
+
+  h1, h2, h3 { font-family: inherit; }
+</style>
+</head>
+<body>
+  <div class="bg-blob blob1"></div>
+  <div class="bg-blob blob2"></div>
+  <div class="bg-blob blob3"></div>
+
+  <div class="hero enter" style="animation-delay:0s;">
+    <div class="logo">🔍</div>
+    <h1>Miscue Lens</h1>
+    <p>Notice whether a misread word fits native-language interference or needs a closer teacher look.</p>
+  </div>
+
+  <div class="steps enter" style="animation-delay:.05s;">
+    <div class="step-dot active"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot active"></div>
+  </div>
+
+  <div class="card enter" style="animation-delay:.1s;">
+    <div class="card-label"><span class="num">1</span> Choose native language</div>
+    <select id="languageSelect"></select>
+  </div>
+
+  <div class="card enter" style="animation-delay:.16s;">
+    <div class="card-label"><span class="num">2</span> Choose a passage</div>
+    <select id="passageSelect"></select>
+  </div>
+
+  <div id="passageText" class="enter" style="animation-delay:.22s;">Select a passage above.</div>
+
+  <div class="card enter" style="margin-top: 20px; animation-delay:.28s;">
+    <div class="card-label"><span class="num">3</span> Record the student reading the passage aloud</div>
+    <div class="record-row">
+      <button id="recordBtn">Start Recording</button>
+      <button id="analyzeBtn" disabled>Analyze Reading</button>
+      <canvas id="waveform" width="180" height="44"></canvas>
+    </div>
+    <div id="statusLine" style="color:var(--color-muted); font-size:0.85rem; min-height:1.3em; margin-top:12px;"></div>
+    <div class="progress-steps" id="progressSteps" style="display:none;">
+      <div class="progress-step" data-step="0"><span class="circle">1</span> Transcribing</div>
+      <div class="progress-step" data-step="1"><span class="circle">2</span> Classifying</div>
+      <div class="progress-step" data-step="2"><span class="circle">3</span> Explaining</div>
+    </div>
+    <div class="progress-bar-track" id="progressTrack" style="display:none;">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+<script>
+let allLanguages = [];
+let allPassages = [];
+let mediaRecorder = null;
+let audioChunks = [];
+let recordedBlob = null;
+let audioCtx = null;
+let analyserNode = null;
+let waveformRAF = null;
+
+const languageSelect = document.getElementById('languageSelect');
+const passageSelect = document.getElementById('passageSelect');
+const passageTextEl = document.getElementById('passageText');
+const recordBtn = document.getElementById('recordBtn');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const statusLineEl = document.getElementById('statusLine');
+const progressStepsEl = document.getElementById('progressSteps');
+const progressTrackEl = document.getElementById('progressTrack');
+const progressFillEl = document.getElementById('progressFill');
+const waveformCanvas = document.getElementById('waveform');
+const resultsEl = document.getElementById('results');
+
+function setStatusLine(text) {
+  statusLineEl.textContent = text;
+}
+
+function resetProgress() {
+  progressStepsEl.style.display = 'none';
+  progressTrackEl.style.display = 'none';
+  progressFillEl.style.width = '0%';
+  progressStepsEl.querySelectorAll('.progress-step').forEach(el => {
+    el.classList.remove('active', 'done');
+  });
+}
+
+function setStep(index, state) {
+  progressStepsEl.style.display = 'flex';
+  progressTrackEl.style.display = 'block';
+  const steps = progressStepsEl.querySelectorAll('.progress-step');
+  steps.forEach((el, i) => {
+    if (i < index || (i === index && state === 'done')) {
+      el.classList.add('done');
+      el.classList.remove('active');
+    } else if (i === index) {
+      el.classList.add('active');
+      el.classList.remove('done');
+    } else {
+      el.classList.remove('active', 'done');
+    }
+  });
+  const pct = state === 'done' ? (index + 1) / 3 * 100 : (index + 0.5) / 3 * 100;
+  progressFillEl.style.width = pct + '%';
+}
+
+function currentNativeLanguage() {
+  return languageSelect.value || 'en';
+}
+
+function currentNativeLanguageDetails() {
+  return allLanguages.find(language => language.code === currentNativeLanguage()) || allLanguages[0] || { code: 'en', name: 'English', nativeName: 'English', direction: 'ltr' };
+}
+
+function renderLanguageOptions() {
+  languageSelect.innerHTML = allLanguages
+    .map(language => {
+      const label = language.nativeName === language.name ? language.name : `${language.name} (${language.nativeName})`;
+      return `<option value="${language.code}">${label}</option>`;
+    })
+    .join('');
+}
+
+function renderPassageOptions() {
+  passageSelect.innerHTML = allPassages
+    .map(p => `<option value="${p.id}">${p.title}</option>`)
+    .join('');
+  renderPassageText();
+}
+
+function renderPassageText() {
+  const passage = allPassages.find(p => p.id === passageSelect.value);
+  passageTextEl.style.opacity = 0;
+  setTimeout(() => {
+    passageTextEl.textContent = passage ? passage.text : 'Select a passage above.';
+    passageTextEl.style.opacity = 1;
+  }, 120);
+}
+
+languageSelect.addEventListener('change', () => {
+  const details = currentNativeLanguageDetails();
+  languageSelect.dir = details.direction;
+});
+passageSelect.addEventListener('change', renderPassageText);
+
+Promise.all([
+  fetch('/api/languages').then(r => r.json()),
+  fetch('/api/passages').then(r => r.json())
+])
+  .then(([languages, passages]) => {
+    allLanguages = languages;
+    allPassages = passages;
+    renderLanguageOptions();
+    renderPassageOptions();
+  })
+  .catch(() => {
+    setStatusLine('Could not load languages or passages. Is the server running?');
+  });
+
+function drawWaveform() {
+  if (!analyserNode) return;
+  const bufferLength = analyserNode.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyserNode.getByteFrequencyData(dataArray);
+  const ctx = waveformCanvas.getContext('2d');
+  const w = waveformCanvas.width, h = waveformCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const barWidth = w / bufferLength;
+  for (let i = 0; i < bufferLength; i++) {
+    const barHeight = Math.max(2, (dataArray[i] / 255) * h);
+    ctx.fillStyle = i % 2 === 0 ? '#4f46e5' : '#818cf8';
+    ctx.fillRect(i * barWidth, h - barHeight, barWidth - 1.5, barHeight);
+  }
+  waveformRAF = requestAnimationFrame(drawWaveform);
+}
+
+recordBtn.addEventListener('click', async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  try {
+    recordBtn.disabled = true;
+    setStatusLine('Getting mic ready... wait for it to say Recording.');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      stream.getTracks().forEach(t => t.stop());
+      recordBtn.textContent = 'Start Recording';
+      recordBtn.classList.remove('recording');
+      analyzeBtn.disabled = false;
+      setStatusLine('Recording captured. Ready to analyze.');
+      if (waveformRAF) cancelAnimationFrame(waveformRAF);
+      waveformRAF = null;
+      waveformCanvas.classList.remove('active');
+      if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; analyserNode = null; }
+    };
+
+    // Optional: live waveform visualization. Wrapped separately so a failure
+    // here never blocks the actual recording.
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 64;
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyserNode); // not connected to destination — no echo
+    } catch (e) {
+      audioCtx = null;
+      analyserNode = null;
+    }
+
+    // Give the mic a moment to actually start capturing before we begin.
+    // Without this, the first word or two of speech can get clipped if the
+    // reader starts talking right as they click the button.
+    await new Promise(resolve => setTimeout(resolve, 600));
+    mediaRecorder.start();
+    recordBtn.disabled = false;
+    recordBtn.textContent = 'Stop Recording';
+    recordBtn.classList.add('recording');
+    setStatusLine('Recording... read the passage aloud.');
+    waveformCanvas.classList.add('active');
+    if (analyserNode) drawWaveform();
+  } catch (err) {
+    recordBtn.disabled = false;
+    setStatusLine('Microphone access denied or unavailable.');
+  }
+});
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  const passage = allPassages.find(p => p.id === passageSelect.value);
+  const nativeLanguage = currentNativeLanguage();
+  analyzeBtn.disabled = true;
+  resultsEl.innerHTML = '';
+  resetProgress();
+
+  try {
+    setStep(0, 'active');
+    setStatusLine('');
+    const formData = new FormData();
+    formData.append('audio', recordedBlob, 'reading.webm');
+    const transcribeRes = await fetch('/api/transcribe', { method: 'POST', body: formData });
+    const { transcript } = await transcribeRes.json();
+    setStep(0, 'done');
+
+    setStep(1, 'active');
+    const classifyRes = await fetch('/api/classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passageText: passage.text, transcript, nativeLanguage })
+    });
+    const { misses } = await classifyRes.json();
+    setStep(1, 'done');
+
+    setStep(2, 'active');
+    const explainRes = await fetch('/api/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nativeLanguage, misses })
+    });
+    const explanation = await explainRes.json();
+    setStep(2, 'done');
+
+    renderResults(transcript, misses, explanation);
+    setStatusLine('Done.');
+    if (misses.length === 0) launchConfetti();
+  } catch (err) {
+    setStatusLine('Something went wrong. Check the console.');
+    console.error(err);
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+const LABELS = {
+  en: {
+    transcript: 'Transcript',
+    missedWords: 'Missed Words',
+    whatToWorkOn: 'What to work on',
+    noMisses: 'No misses detected — great reading!',
+    interferencePattern: 'Interference pattern',
+    inconsistentPattern: 'Closer look',
+    readAs: 'read as',
+    tip: 'Practice tip:'
+  },
+  zh: {
+    transcript: '朗读记录',
+    missedWords: '读错的词',
+    whatToWorkOn: '练习重点',
+    noMisses: '没有发现读错的词，读得很棒！',
+    interferencePattern: '语言迁移模式',
+    inconsistentPattern: '需要进一步观察',
+    readAs: '读成',
+    tip: '练习建议：'
+  }
+};
+
+function missCardHtml(m, lang, index) {
+  const L = LABELS[lang] || LABELS.en;
+  const reasoning = lang !== 'en' ? (m.reasoningNative || m.reasoning) : m.reasoning;
+  const badgeText = m.classification === 'interference_pattern' ? L.interferencePattern : L.inconsistentPattern;
+  const delay = (index * 0.08).toFixed(2);
+  return `<div class="miss ${m.classification}" style="animation-delay:${delay}s;">
+    <div class="miss-top">
+      <span class="words"><strong>${m.targetWord}</strong> ${L.readAs} <strong>"${m.spokenWord}"</strong></span>
+      <span class="badge">${badgeText}</span>
+    </div>
+    <div class="reasoning">${reasoning || ''}</div>
+  </div>`;
+}
+
+function resultsBlockHtml(transcript, misses, explanation, lang) {
+  const L = LABELS[lang] || LABELS.en;
+  const summary = lang !== 'en' ? explanation.summaryNative : explanation.summary;
+  const tip = lang !== 'en' ? explanation.tipNative : explanation.tip;
+  const missesHtml = misses.map((m, i) => missCardHtml(m, lang, i)).join('');
+  const insightDelay = (misses.length * 0.08 + 0.1).toFixed(2);
+
+  return `
+    <div class="card">
+      <div class="section-title">${L.transcript}</div>
+      <div class="transcript-quote">${transcript}</div>
+
+      <div class="section-title">${L.missedWords}</div>
+      ${missesHtml || `<div class="no-misses">${L.noMisses}</div>`}
+
+      <div class="section-title">${L.whatToWorkOn}</div>
+      <div class="insight-card" style="animation-delay:${insightDelay}s;">
+        <p>${summary}</p>
+        <div class="tip-row"><span class="tip-icon">💡</span><p><strong>${L.tip}</strong> ${tip}</p></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderResults(transcript, misses, explanation) {
+  const nativeDetails = currentNativeLanguageDetails();
+  const nativeLang = nativeDetails.code;
+  const hasNativeTranslation = nativeLang !== 'en' && Boolean(explanation.summaryNative && explanation.tipNative);
+  let lang = 'en';
+
+  resultsEl.innerHTML = `
+    <div class="results-header"><h2>Results</h2>${hasNativeTranslation ? `<button id="langToggle">${nativeDetails.nativeName}</button>` : ''}</div>
+    <div class="lang-content" id="langContent"></div>
+  `;
+  const langContentEl = document.getElementById('langContent');
+  const toggleBtn = document.getElementById('langToggle');
+
+  function paint() {
+    langContentEl.dir = lang === 'en' ? 'ltr' : nativeDetails.direction;
+    langContentEl.innerHTML = resultsBlockHtml(transcript, misses, explanation, lang);
+  }
+  paint();
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      langContentEl.classList.add('fading');
+      setTimeout(() => {
+        lang = lang === 'en' ? nativeLang : 'en';
+        toggleBtn.textContent = lang === 'en' ? nativeDetails.nativeName : 'English';
+        paint();
+        langContentEl.classList.remove('fading');
+      }, 180);
+    });
+  }
+}
+
+function launchConfetti() {
+  const colors = ['#4f46e5', '#818cf8', '#f0abfc', '#34d399', '#fbbf24'];
+  const count = 36;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const size = 6 + Math.random() * 6;
+    piece.style.width = size + 'px';
+    piece.style.height = (size * 1.6) + 'px';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    const duration = 1.8 + Math.random() * 1.4;
+    const rotation = 360 + Math.random() * 540;
+    piece.style.transition = `transform ${duration}s cubic-bezier(.2,.6,.4,1), opacity ${duration}s ease`;
+    document.body.appendChild(piece);
+    requestAnimationFrame(() => {
+      piece.style.transform = `translateY(${window.innerHeight + 40}px) rotate(${rotation}deg)`;
+      piece.style.opacity = '0.15';
+    });
+    setTimeout(() => piece.remove(), duration * 1000 + 200);
+  }
+}
+</script>
+</body>
+</html>
