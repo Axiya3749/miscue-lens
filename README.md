@@ -35,7 +35,7 @@ Pick a native language and a passage, click **Start Recording**, read the passag
 
 The initial application — recording UI, passage picker, Express server scaffolding, the Whisper/gpt-4o-transcribe integration, and the word-alignment algorithm — was built iteratively in a Claude-assisted session. Partway through, the product direction changed from a fixed two-population model (native English / Chinese-background) to a general framework that works for a student with any native language. **Codex was used to execute that core rework**: it built `src/languages.ts` (the native-language registry), rewrote `src/classify.ts` and `src/explain.ts` around the `interference_pattern` / `inconsistent_pattern` model, added the `GET /api/languages` endpoint and wired it through `src/server.ts`, and updated the frontend's language dropdown, result labels, and bilingual toggle — while leaving the transcription and alignment logic untouched.
 
-Codex session ID (primary build thread): `[paste your /feedback session ID here]`
+Codex session ID (primary build thread): `019f7829-221a-7080-b918-c0877658ace1`
 
 Key product decisions made deliberately, not left to the model:
 - Dropped stylus/gaze biometric tracking and a native-language baseline-reading step from the original concept — neither was buildable to a reliable, testable standard in the time available.
