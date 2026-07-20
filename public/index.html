@@ -226,6 +226,18 @@
   #langToggle:hover { background: var(--color-primary-light); }
   #langToggle:active { transform: scale(0.94); }
 
+  .ui-lang-toggle {
+    position: fixed; top: 18px; right: 18px; z-index: 20;
+    padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--color-primary);
+    background: white; color: var(--color-primary); font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; transition: all 0.15s ease; box-shadow: var(--shadow-card);
+  }
+  .ui-lang-toggle:hover { background: var(--color-primary-light); }
+  .ui-lang-toggle:active { transform: scale(0.94); }
+  @media (max-width: 480px) {
+    .ui-lang-toggle { top: 10px; right: 10px; padding: 6px 12px; font-size: 0.75rem; }
+  }
+
   .lang-content { transition: opacity 0.18s ease, transform 0.18s ease; }
   .lang-content.fading { opacity: 0; transform: translateY(4px); }
 
@@ -273,6 +285,7 @@
 </style>
 </head>
 <body>
+  <button id="uiLangToggle" class="ui-lang-toggle" type="button">中文</button>
   <div class="bg-blob blob1"></div>
   <div class="bg-blob blob2"></div>
   <div class="bg-blob blob3"></div>
@@ -280,7 +293,7 @@
   <div class="hero enter" style="animation-delay:0s;">
     <div class="logo">🔍</div>
     <h1>Miscue Lens</h1>
-    <p>Notice whether a misread word fits native-language interference or needs a closer teacher look.</p>
+    <p data-i18n="heroSubtitle">Notice whether a misread word fits native-language interference or needs a closer teacher look.</p>
   </div>
 
   <div class="steps enter" style="animation-delay:.05s;">
@@ -290,29 +303,29 @@
   </div>
 
   <div class="card enter" style="animation-delay:.1s;">
-    <div class="card-label"><span class="num">1</span> Choose native language</div>
+    <div class="card-label"><span class="num">1</span> <span data-i18n="chooseNativeLanguage">Choose native language</span></div>
     <select id="languageSelect"></select>
   </div>
 
   <div class="card enter" style="animation-delay:.16s;">
-    <div class="card-label"><span class="num">2</span> Choose a passage</div>
+    <div class="card-label"><span class="num">2</span> <span data-i18n="choosePassage">Choose a passage</span></div>
     <select id="passageSelect"></select>
   </div>
 
-  <div id="passageText" class="enter" style="animation-delay:.22s;">Select a passage above.</div>
+  <div id="passageText" class="enter" style="animation-delay:.22s;" data-i18n="selectPassageAbove">Select a passage above.</div>
 
   <div class="card enter" style="margin-top: 20px; animation-delay:.28s;">
-    <div class="card-label"><span class="num">3</span> Record the student reading the passage aloud</div>
+    <div class="card-label"><span class="num">3</span> <span data-i18n="recordInstruction">Record the student reading the passage aloud</span></div>
     <div class="record-row">
-      <button id="recordBtn">Start Recording</button>
-      <button id="analyzeBtn" disabled>Analyze Reading</button>
+      <button id="recordBtn" data-i18n="startRecording">Start Recording</button>
+      <button id="analyzeBtn" disabled data-i18n="analyzeReading">Analyze Reading</button>
       <canvas id="waveform" width="180" height="44"></canvas>
     </div>
     <div id="statusLine" style="color:var(--color-muted); font-size:0.85rem; min-height:1.3em; margin-top:12px;"></div>
     <div class="progress-steps" id="progressSteps" style="display:none;">
-      <div class="progress-step" data-step="0"><span class="circle">1</span> Transcribing</div>
-      <div class="progress-step" data-step="1"><span class="circle">2</span> Classifying</div>
-      <div class="progress-step" data-step="2"><span class="circle">3</span> Explaining</div>
+      <div class="progress-step" data-step="0"><span class="circle">1</span> <span data-i18n="stepTranscribing">Transcribing</span></div>
+      <div class="progress-step" data-step="1"><span class="circle">2</span> <span data-i18n="stepClassifying">Classifying</span></div>
+      <div class="progress-step" data-step="2"><span class="circle">3</span> <span data-i18n="stepExplaining">Explaining</span></div>
     </div>
     <div class="progress-bar-track" id="progressTrack" style="display:none;">
       <div class="progress-bar-fill" id="progressFill"></div>
@@ -342,6 +355,78 @@ const progressTrackEl = document.getElementById('progressTrack');
 const progressFillEl = document.getElementById('progressFill');
 const waveformCanvas = document.getElementById('waveform');
 const resultsEl = document.getElementById('results');
+const uiLangToggle = document.getElementById('uiLangToggle');
+
+// Static interface chrome (buttons, labels, status messages). Independent
+// from the per-result LABELS/langToggle below, which translates the
+// AI-generated reasoning into the student's native language. This toggle
+// translates the app's own interface text and defaults to English so it
+// never changes what's on screen unless a teacher explicitly switches it.
+let uiLang = 'en';
+
+const UI_STRINGS = {
+  en: {
+    heroSubtitle: 'Notice whether a misread word fits native-language interference or needs a closer teacher look.',
+    chooseNativeLanguage: 'Choose native language',
+    choosePassage: 'Choose a passage',
+    recordInstruction: 'Record the student reading the passage aloud',
+    selectPassageAbove: 'Select a passage above.',
+    startRecording: 'Start Recording',
+    stopRecording: 'Stop Recording',
+    analyzeReading: 'Analyze Reading',
+    stepTranscribing: 'Transcribing',
+    stepClassifying: 'Classifying',
+    stepExplaining: 'Explaining',
+    results: 'Results',
+    statusGettingMicReady: 'Getting mic ready... wait for it to say Recording.',
+    statusRecording: 'Recording... read the passage aloud.',
+    statusCaptured: 'Recording captured. Ready to analyze.',
+    statusMicDenied: 'Microphone access denied or unavailable.',
+    statusLoadError: 'Could not load languages or passages. Is the server running?',
+    statusAnalyzeError: 'Something went wrong. Check the console.',
+    statusDone: 'Done.'
+  },
+  zh: {
+    heroSubtitle: '查看读错的词是否符合母语迁移模式，还是需要老师进一步关注。',
+    chooseNativeLanguage: '选择学生的母语',
+    choosePassage: '选择朗读文章',
+    recordInstruction: '录制学生朗读文章的声音',
+    selectPassageAbove: '请选择上方的文章。',
+    startRecording: '开始录音',
+    stopRecording: '停止录音',
+    analyzeReading: '分析朗读',
+    stepTranscribing: '转录中',
+    stepClassifying: '分类中',
+    stepExplaining: '生成解释中',
+    results: '结果',
+    statusGettingMicReady: '正在准备麦克风……等待提示变为"正在录音"。',
+    statusRecording: '正在录音……请朗读文章。',
+    statusCaptured: '录音完成，可以开始分析。',
+    statusMicDenied: '无法访问麦克风，或权限被拒绝。',
+    statusLoadError: '无法加载语言或文章列表，请确认服务器是否正在运行。',
+    statusAnalyzeError: '出现错误，请查看控制台。',
+    statusDone: '完成。'
+  }
+};
+
+function applyUiStrings() {
+  const S = UI_STRINGS[uiLang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (S[key] !== undefined) el.textContent = S[key];
+  });
+  const isRecording = Boolean(mediaRecorder && mediaRecorder.state === 'recording');
+  recordBtn.textContent = isRecording ? S.stopRecording : S.startRecording;
+  if (typeof renderPassageText === 'function') renderPassageText();
+  uiLangToggle.textContent = uiLang === 'en' ? '中文' : 'English';
+}
+
+uiLangToggle.addEventListener('click', () => {
+  uiLang = uiLang === 'en' ? 'zh' : 'en';
+  applyUiStrings();
+});
+
+applyUiStrings();
 
 function setStatusLine(text) {
   statusLineEl.textContent = text;
@@ -403,7 +488,7 @@ function renderPassageText() {
   const passage = allPassages.find(p => p.id === passageSelect.value);
   passageTextEl.style.opacity = 0;
   setTimeout(() => {
-    passageTextEl.textContent = passage ? passage.text : 'Select a passage above.';
+    passageTextEl.textContent = passage ? passage.text : UI_STRINGS[uiLang].selectPassageAbove;
     passageTextEl.style.opacity = 1;
   }, 120);
 }
@@ -425,7 +510,7 @@ Promise.all([
     renderPassageOptions();
   })
   .catch(() => {
-    setStatusLine('Could not load languages or passages. Is the server running?');
+    setStatusLine(UI_STRINGS[uiLang].statusLoadError);
   });
 
 function drawWaveform() {
@@ -452,7 +537,7 @@ recordBtn.addEventListener('click', async () => {
   }
   try {
     recordBtn.disabled = true;
-    setStatusLine('Getting mic ready... wait for it to say Recording.');
+    setStatusLine(UI_STRINGS[uiLang].statusGettingMicReady);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
@@ -460,10 +545,10 @@ recordBtn.addEventListener('click', async () => {
     mediaRecorder.onstop = () => {
       recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
       stream.getTracks().forEach(t => t.stop());
-      recordBtn.textContent = 'Start Recording';
+      recordBtn.textContent = UI_STRINGS[uiLang].startRecording;
       recordBtn.classList.remove('recording');
       analyzeBtn.disabled = false;
-      setStatusLine('Recording captured. Ready to analyze.');
+      setStatusLine(UI_STRINGS[uiLang].statusCaptured);
       if (waveformRAF) cancelAnimationFrame(waveformRAF);
       waveformRAF = null;
       waveformCanvas.classList.remove('active');
@@ -489,14 +574,14 @@ recordBtn.addEventListener('click', async () => {
     await new Promise(resolve => setTimeout(resolve, 600));
     mediaRecorder.start();
     recordBtn.disabled = false;
-    recordBtn.textContent = 'Stop Recording';
+    recordBtn.textContent = UI_STRINGS[uiLang].stopRecording;
     recordBtn.classList.add('recording');
-    setStatusLine('Recording... read the passage aloud.');
+    setStatusLine(UI_STRINGS[uiLang].statusRecording);
     waveformCanvas.classList.add('active');
     if (analyserNode) drawWaveform();
   } catch (err) {
     recordBtn.disabled = false;
-    setStatusLine('Microphone access denied or unavailable.');
+    setStatusLine(UI_STRINGS[uiLang].statusMicDenied);
   }
 });
 
@@ -536,10 +621,10 @@ analyzeBtn.addEventListener('click', async () => {
     setStep(2, 'done');
 
     renderResults(transcript, misses, explanation);
-    setStatusLine('Done.');
+    setStatusLine(UI_STRINGS[uiLang].statusDone);
     if (misses.length === 0) launchConfetti();
   } catch (err) {
-    setStatusLine('Something went wrong. Check the console.');
+    setStatusLine(UI_STRINGS[uiLang].statusAnalyzeError);
     console.error(err);
   } finally {
     analyzeBtn.disabled = false;
@@ -614,7 +699,7 @@ function renderResults(transcript, misses, explanation) {
   let lang = 'en';
 
   resultsEl.innerHTML = `
-    <div class="results-header"><h2>Results</h2>${hasNativeTranslation ? `<button id="langToggle">${nativeDetails.nativeName}</button>` : ''}</div>
+    <div class="results-header"><h2>${UI_STRINGS[uiLang].results}</h2>${hasNativeTranslation ? `<button id="langToggle">${nativeDetails.nativeName}</button>` : ''}</div>
     <div class="lang-content" id="langContent"></div>
   `;
   const langContentEl = document.getElementById('langContent');
